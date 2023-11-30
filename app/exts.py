@@ -12,7 +12,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(stream=sys.stdout))
 pool = ThreadPoolExecutor(10)
-
+logger.info(os.environ)
 client = Elasticsearch(
     hosts=os.environ.get('ES_URL'),
     api_key=os.environ.get('ES_API_KEY'),
