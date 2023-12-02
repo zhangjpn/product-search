@@ -8,13 +8,15 @@ from logging import Logger
 from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch
 
+from app.extensions.embedding_cilent import EmbeddingClient
+
 
 class ProductSearchBaseError(Exception):
     """base exception for product search module"""
 
+
 class SearchQueryError(ProductSearchBaseError):
     """raised when unable to query to elasticsearch"""
-
 
 
 class ProductResultItem(object):
@@ -76,8 +78,17 @@ class ProductSearchResult(object):
 
 class ProductService(object):
 
-    def __init__(self, index: str, es_client: Elasticsearch, logger: Logger = None, timeout=None):
+    def __init__(
+        self,
+        index: str,
+        es_client: Elasticsearch,
+        embedding_client: EmbeddingClient,
+        logger: Logger = None,
+        timeout=None
+    ):
+
         self.es_client = es_client
+        self.embedding_client = embedding_client
         self.index = index
         if logger:
             self.logger = logger
@@ -105,6 +116,10 @@ class ProductService(object):
     def keyword_search(self, keywords: str, page: int, page_size: int) -> ObjectApiResponse:
         """
         search using keywords for exact match
+        :param keywords: (str) user input keywords
+        :param page: (int) page number
+        :param page_size: (int) size per page
+        :return ObjectApiResponse
         """
         skip, size = self.paginate_parameter(page, page_size)
         search_resp: ObjectApiResponse = self.es_client.search(
@@ -118,41 +133,55 @@ class ProductService(object):
                     }
                 }
             },
-            timeout=self.timeout
-        )
-        return search_resp
-
-    def semantic_search(self, query: str, page: int, page_size: int) -> ObjectApiResponse:
-        """
-        search using keywords for semantic match
-        :param query: str user input
-        :param page:
-        :param page_size:
-        :return:
-        """
-        skip, size = self.paginate_parameter(page, page_size)
-        search_resp: ObjectApiResponse = self.es_client.search(
-            index=self.index,
-            from_=skip,
-            size=size,
-            query={  # todo: implement semantic search
-                'match': {
-                    'title': {
-                        'query': query
-                    }
-                }
+            source={
+                'excludes': ['embedding']
             },
             timeout=self.timeout
         )
         return search_resp
 
-    def search_product(self, keywords, page, page_size) -> ProductSearchResult:
-        """search using keywords"""
+    def semantic_search(self, query: str, page_size: int) -> ObjectApiResponse:
+        """
+        search using keywords for semantic match
+        :param query: (str) user input
+        :param page_size: (int) return document count
+        :return: ObjectApiResponse
+        """
+
+        # convert query into vector
+        query_vector = self.embedding_client.predict(query)
+
+        # knn search
+        search_resp: ObjectApiResponse = self.es_client.search(
+            index=self.index,
+            knn={
+                'field': 'embedding',
+                'k': page_size,
+                'num_candidates': page_size,
+                'query_vector': query_vector,
+            },
+            source={
+                'excludes': ['embedding']
+            },
+            timeout=self.timeout
+        )
+        return search_resp
+
+    def search_product(self, keywords, page, page_size, backup_page_size) -> ProductSearchResult:
+        """
+        search product using user input
+        :param keywords: (str) user input
+        :param page: (int) page number
+        :param page_size: (int) size per page
+        :param backup_page_size: (int) max return page size when no direct match
+        :return ProductSearchResult
+
+        """
         try:
             search_resp = self.keyword_search(keywords, page=page, page_size=page_size)
             resp_data = search_resp.body
             if not resp_data['hits']['hits']:
-                search_resp = self.semantic_search(query=keywords, page=page, page_size=page_size)
+                search_resp = self.semantic_search(query=keywords, page_size=backup_page_size)
         except Exception as e:
             self.logger.exception(f'Exception was raised when searching for product list, error: {e}')
             raise SearchQueryError(f'Unknown Error occurred') from e

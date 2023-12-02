@@ -32,13 +32,9 @@ class ApiAuthExt(object):
         def inner(*args, **kwargs):
             if not self.key_getter:
                 raise KeyGetterNotSet('key_getter method not set')
-            print('cccccccc')
             key = self.key_getter()
             if self.api_key != key and self.forbid_handler:
-                print('bbbbbbbb')
-                print(self.forbid_handler)
                 return self.forbid_handler()
-            print('aaaaaaaaa')
             return f(*args, **kwargs)
 
         return inner
