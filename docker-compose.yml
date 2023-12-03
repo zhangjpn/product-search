@@ -1,4 +1,4 @@
-version: '1'
+version: '3'
 networks:
   product:
     name: product_network
@@ -13,25 +13,25 @@ services:
       - MODEL_NAME=embedding
     volumes:
       - ${PWD}/data/models/embedding:/models/embedding:ro
-  product_embedding2:
-    container_name: product_embedding2
-    image: tensorflow/serving:latest
-    networks:
-      - product
-    environment:
-      - MODEL_NAME=embedding
-    volumes:
-      - ${PWD}/data/models/embedding:/models/embedding:ro
+#  product_embedding2:
+#    container_name: product_embedding2
+#    image: tensorflow/serving:latest
+#    networks:
+#      - product
+#    environment:
+#      - MODEL_NAME=embedding
+#    volumes:
+#      - ${PWD}/data/models/embedding:/models/embedding:ro
   nginx:
     container_name: product_nginx
     image: nginx:latest
     depends_on:
       - product_embedding1
-      - product_embedding2
+      # - product_embedding2
     networks:
       - product
     ports:
-      - 8501:8501
+      - 8088:8088
     volumes:
       - ${PWD}/deployment/nginx/embedding.conf:/etc/nginx/conf.d/embedding.conf
   redis:
@@ -42,8 +42,8 @@ services:
       - product
     volumes:
       - ${PWD}/data/redis:/data
-    ports:
-      - 6379:6379
+    # ports:
+    #   - 6379:6379
   elasticsearch:
     container_name: product_elasticsearch
     image: elasticsearch:8.11.1
@@ -53,9 +53,9 @@ services:
       - xpack.security.enabled=false
     volumes:
       - ${PWD}/data/elasticsearch/data:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-      - 9300:9300
+    # ports:
+    #   - 9200:9200
+    #   - 9300:9300
 
     networks:
       - product
@@ -67,17 +67,17 @@ services:
     container_name: product_app
     environment:
       - ES_HOST=http://elasticsearch:9200
-      - ES_SEARCH_INDEX=search-my-search-embedding
+      - ES_SEARCH_INDEX=search-products
       - SEARCH_API_KEY=${SEARCH_API_KEY}
       - EMBEDDING_SERVICE_HOST=http://nginx:8501
       - EMBEDDING_SERVICE_HOST_MODEL_NAME=embedding
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - RATELIMIT_DURATION=5s
-      - RATELIMIT_COUNT=10
+      - RATELIMIT_DURATION=1d
+      - RATELIMIT_COUNT=100
 
-    ports:
-      - 8088:80
+    # ports:
+    #   - 8088:80
     networks:
       - product
     depends_on:

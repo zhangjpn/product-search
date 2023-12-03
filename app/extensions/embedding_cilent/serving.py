@@ -21,11 +21,10 @@ class EmbeddingClient(object):
         self.timeout = timeout
         self.headers = headers or dict()
 
-    def predict(self, query, **kwargs) -> dict:
-        """request language model for prediction result """
+    def _predict(self, query_list, **kwargs) -> list:
         pth = f'/v1/models/{self.model_name}:predict'
 
-        body = {"instances": [query]}
+        body = {"instances": query_list}
         try:
 
             resp = self.send('POST', path=pth, json=body, **kwargs)
@@ -47,9 +46,21 @@ class EmbeddingClient(object):
                     f'status_code: {resp.status_code}, content: {resp.content}'
                 )
         resp_body = resp.json()
-        ret = resp_body.get('predictions')[0]
-        self._logger.debug(f'Embedding got result, query:{query}, result: {resp_body}')
-        return ret
+        self._logger.debug(f'Embedding got result, query_list:{query_list}, result: {resp_body}')
+
+        return resp_body.get('predictions')
+
+    def predict(self, query: str, **kwargs) -> dict:
+        """ request language model for prediction result """
+
+        result_list = self._predict(query_list=[query], **kwargs)
+        return result_list[0]
+
+    def predict_many(self, query_list: list, **kwargs):
+        """ calculate a list of phrase or sentence """
+
+        result_list = self._predict(query_list=query_list, **kwargs)
+        return result_list
 
     def send(self, method, path, params=None, data=None, json=None, **kwargs) -> Response:
         kwargs.setdefault('timeout', self.timeout)

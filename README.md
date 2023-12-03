@@ -1,42 +1,46 @@
-# product search api specification
-product search api for new aim interview
+# Product Search API Specification
 
+API documentation for the Product Search service.
 
 ## Architecture
 
 ![architecture](./docs/assets/architecture.png)
 
-assumption:
-- 本系统实现了上述架构图中红框的部分，在真实生产环境中，该系统不是独立存在的，数据将通过消息队列、rest api等方式从其它系统获取。该数据处理部分在本次功能中未实现，而是使用脚本从本地csv文件中获取、处理并写入。
-- 在真实环境中，往往存在多个用户访问，为简单起见，本系统仅通过环境变量配置的方式提供一个`api key`作为用户身份。
-- 在真实环境中，出于规模、性能、可靠性方面的原因，系统各个组建往往采用集群的方式提供服务，往往需要服务注册和服务发现完整的系统，为简单起见，本系统仅通过环境变量配置的方式获取所依赖服务的访问地址。
-- 本系统实现的匹配是基于英文语境下的文本搜索，对其它语言的支持不是特别完善。
-- 在业务逻辑层面，本系统采取将关键词与商品标题进行匹配的方式，而未对商品描述做过多处理
-- 在数据返回环节，真实系统可能会返回更多商品各个维度的信息，这将涉及数据缓存的环节，本系统未实现
+### Assumptions:
 
-feature：
-- 基于elasticsearch构建，对title字段进行分词和倒排索引，以匹配用户输入的关键词
-- 对于标题中没有相应关键词的情况，系统将使用语义搜索的方式寻找数据库中与关键词语义接近的title
-- 接口限流，在首次访问算起，给定时间区间内只能访问限定次数，区间时长和允许访问次数可通过环境变量配置
+- The system implements the components within the red box in the architecture diagram. In a real production environment, the system is not standalone, and data is obtained from other systems through methods like message queues or REST APIs. The data processing part is not implemented in this feature but is done using scripts to fetch, process, and write data from a local CSV file.
+- In a real-world scenario, multiple users might access the system. For simplicity, this system provides only one `api key` as user identification through environment variable configuration.
+- In real environments, for scalability, performance, and reliability reasons, components of the system often use clustering. Complete systems with service registration and discovery are typical. For simplicity, this system obtains access addresses for dependent services through environment variable configuration.
+- The matching implemented in this system is based on text search in an English language context, and support for other languages may not be comprehensive.
+- In terms of business logic, the system matches keywords with product titles and does not extensively process product descriptions.
+- In the data return process, a real system might return more information on various dimensions of products, involving a data caching step, which is not implemented in this system.
 
-实现
-- 上述app使用flask+gunicorn提供web服务
-- embedding service基于tensorflow-serving和谷歌开源的universal-sentence-encoder模型提供文本向量化功能，为语义搜索提供支撑
-- 限流功能通过redis提供的键过期功能实现
+### feature：
+- Built on Elasticsearch, tokenizing and inverting the index for the title field to match user-input keywords.
+- In cases where keywords are not present in the title, the system uses semantic search to find titles in the database semantically close to the keywords.
+- The search interface provides pagination through request parameters. When there is no direct hit on keywords, it returns fuzzy results for up to 1 page of data.
+- Rate limiting is applied; starting from the first visit, a limited number of requests are allowed within a given time interval. The interval duration and allowed number of visits can be configured via environment variables.
+
+### Implementation:
+- The mentioned app uses Flask + Gunicorn to provide web services.
+- The embedding service, based on TensorFlow Serving and Google's open-source universal-sentence-encoder model, provides text vectorization for semantic search support.
+- Rate limiting is implemented using Redis for key expiration functionality.
 
 
-## 详细设计
+## Detailed Design
 
-### api
+### API
 
-#### 产品搜索接口
+#### Product Search API
 
-path: /products?keywords=some_name&id=1234&_t=12345 
-method: GET 
-headers: 
-    Authorization: token
-
-response:
+Path: /products?kw=some_name&p=1&_t=12345
+Method: GET
+Headers:
+Authorization: token
+Query String:
+- kw: search keyword
+- p: page number
+Response:
 
 ```json
 {
@@ -45,53 +49,141 @@ response:
   "data": {
     "items": [
       {"id": "", "sku": "", "title": "", "description": ""},
-      {"id": "", "sku": "", "title": "", "description": ""},
+      {"id": "", "sku": "", "title": "", "description": ""}
     ],
     "has_next": 1
   }
 }
 ```
-字段说明
 
-| 字段                       | 数据类型    | 是否必传 | 描述                   |
-|--------------------------|---------|------|----------------------|
-| err_code                 | integer | 是    | 错误码，0-无错误，其它见通用错误码取值 |
-| msg                      | string  | 是    | 错误描述                 |
-| data                     | object  | 是    | 具体返回数据               |
-| data.has_next            | integer | 是    | 是否有下一页：1-有；0-没有      |
-| data.items               | array   | 是    | 商品列                  |
-| data.items[]             | object  | 是    | 商品项                  |
-| data.items[].id          | string  | 是    | 商品id                 |
-| data.items[].sku         | string  | 是    | 商品sku                |
-| data.items[].title       | string  | 是    | 商品title              |
-| data.items[].description | string  | 是    | 商品描述                 |
+Response Status Code:
+
+| Status Code | Description                             |
+|-------------|-----------------------------------------|
+| 200         | Successful                              |
+| 403         | Permission denied, invalid API key      |
+| 404         | URL not found                           |
+| 400         | Bad request                             |
+| 500         | Internal error                          |
 
 
+Response Fields:
+
+| Field                    | Data Type | Required | Description                 |
+|--------------------------|-----------|----------|-----------------------------|
+| err_code                 | integer   | Yes      | Error code, 0 for no error, others see common error code values |
+| msg                      | string    | Yes      | Error description           |
+| data                     | object    | Yes      | return data                 |
+| data.has_next            | integer   | Yes      | Whether there is a next page: 1 - Yes; 0 - No |
+| data.items               | array     | Yes      | List of products            |
+| data.items[]             | object    | Yes      | Product item                |
+| data.items[].id          | string    | Yes      | Product ID                  |
+| data.items[].sku         | string    | Yes      | Product SKU                 |
+| data.items[].title       | string    | Yes      | Product title               |
+| data.items[].description | string    | Yes      | Product description         |
+
+Common Error Codes:
+
+| err_code   | description                                 |
+|------------|---------------------------------------------|
+| 40003      | Permission denied, invalid API key          |
+| 40000      | Bad request                                |
+| 40001      | Reached rate limit                         |
+| 40040      | Not found                                  |
+| 50000      | Internal error                             |
 
 
-## 部署
 
-1. download embedding model
+## Deployment
+
+The following steps are suitable for local deployment based on Docker, assuming Docker is already installed.
+
+- Clone the repository:
 
 ```shell
-# download 
-wget https://storage.googleapis.com/kaggle-models-data/1265/1497/bundle/archive.tar.gz?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=gcp-kaggle-com%40kaggle-161607.iam.gserviceaccount.com%2F20231202%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20231202T110124Z&X-Goog-Expires=259200&X-Goog-SignedHeaders=host&X-Goog-Signature=9f431df72fa76e3f2e8215a7c135a476af010e7ae0506d6736a40a57f95dfda04996deb3ddaa36fb34d8c83c705b2cb06fb101934c659143c16d6cca96c4e7ad1f7961c4eb003fec56e90e43749dce555b7097ce049acdbf2775df8185066c03b5fb88152b5cfa4d75d6c38a49b1847c429b12813980b1e5c47256b27501af94a47b24eca7b993587e6dbbd4732cbf1f27534ea2ee0d93acc7efb92741889aef2b35e6431ae4552a5f15907bec5d7144201263df205dca30ff252eb00e8cfdc48852050988930d4854aa1711889bb1623bde2406249571d1168c4b1b00e1bc4379520dd34f72fb10f505f2f73d5696dc02ea6760c596ded35ecdc85f72cedca1
-mkdir -p app/models/embedding/1
-tar -xvf archive.tar.gz -C app/models/embedding/1
+$ git clone https://github.com/zhangjpn/product-search.git
 ```
 
-2. build application docker image
+- Create directories:
 
 ```shell
-docker build . -t product_app:1.0
+
+cd product-search
+
+# for elasticsearch data
+mkdir -p data/elasticsearch/data
+
+# for embedding model
+mkdir -p data/models/embedding/1
+
+# for redis persistent data
+mkdir -p data/redis
 ```
-3. 
-3. 
-### elasticsearch初始化
 
-### docker-compose
+- Download embedding model and extract model data:
 
-### data import
+```shell
 
-### 
+wget "https://storage.googleapis.com/kaggle-models-data/1265/1497/bundle/archive.tar.gz"
+
+tar -xvf archive.tar.gz -C data/models/embedding/1
+
+```
+
+- Set API key environment:
+
+```shell
+echo "SEARCH_API_KEY={you-api-key}" > env_file
+```
+Replace {your-api-key} with your own API key.
+
+- Run Docker Compose:
+
+This may take some time for Elasticsearch to initialize.
+
+```shell
+docker-compose --env-file env_file up -d 
+```
+
+- Initialize Elasticsearch index:
+
+Once Docker Compose is successfully running, enter the product_app container to execute the program:
+
+```shell
+docker exec -it product_app sh
+# execute script
+python manage.py create_index
+
+# exit docker shell
+exit
+
+```
+
+- Ingest data:
+
+Copy data into the product_app instance and execute the data ingest command:
+
+```shell
+docker cp </path/to/your-file.csv> product_app:/src
+
+docker exec -it product_app sh
+
+# in instance shell
+python manage.py ingest --input <your-file.csv>
+
+```
+- Make a request:
+
+
+```sh
+
+
+curl -X GET http://localhost:8088/products?kw=ok&p=1 -H "Authorization: <api_key>"
+
+```
+
+Make sure to replace <api_key> in the above command with your own API key.
+
+
+
 

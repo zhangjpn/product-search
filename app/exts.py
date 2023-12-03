@@ -39,7 +39,7 @@ def api_key_getter():
 
 
 def permission_denied_handler():
-    return make_response(dict(err_code=40000, msg='Permission denied', data={}), 403)
+    return make_response(dict(err_code=40003, msg='Permission denied', data={}), 403)
 
 
 auth = ApiAuthExt(configs.SEARCH_API_KEY)
