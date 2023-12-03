@@ -27,3 +27,5 @@ EMBEDDING_SERVICE_HOST_MODEL_NAME = os.environ.get('EMBEDDING_SERVICE_HOST_MODEL
 # rate limit settings
 RATELIMIT_DURATION = os.environ.get('RATELIMIT_DURATION', '1d')
 RATELIMIT_COUNT = int(os.environ.get('RATELIMIT_COUNT', 100))
+
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')

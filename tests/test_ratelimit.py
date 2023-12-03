@@ -40,5 +40,4 @@ def test_rate_limit(redis_cli):
                 sleep(0.2)
         else:
             sleep(0.2)
-            print(f'call_count: {i}, key_value: {redis_cli.get(counter_key)}')
             assert int(redis_cli.get(counter_key)) == i

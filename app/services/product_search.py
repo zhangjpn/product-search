@@ -72,7 +72,6 @@ class ProductSearchResult(object):
             yield item
 
     def to_list(self):
-        print(self.result_data)
         return [item.to_dict() for item in self.result_data]
 
 

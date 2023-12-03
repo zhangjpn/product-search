@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 import logging
-import sys
 
 from elasticsearch import Elasticsearch
 from flask import request, make_response
@@ -14,8 +13,6 @@ from .extensions.rate_limit import RateLimiter
 from .services.product_search import ProductService
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler(stream=sys.stdout))
 
 es_client = Elasticsearch(hosts=[configs.ES_HOST])
 
