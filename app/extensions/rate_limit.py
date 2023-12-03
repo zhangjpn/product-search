@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-"""限流功能"""
+""" a api rate limit utils """
 import re
 from functools import wraps
 

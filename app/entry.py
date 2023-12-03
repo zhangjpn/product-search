@@ -1,4 +1,7 @@
 # -*- coding:utf-8 -*-
+"""
+The app entry point, always run create_app using `create_app()` function
+"""
 
 from flask import Flask, make_response
 

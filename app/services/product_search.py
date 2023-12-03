@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 """
-商品搜索功能
+A product search service
 """
 import logging
 import sys
@@ -28,7 +28,7 @@ class ProductResultItem(object):
 
     @classmethod
     def from_dict(cls, dict_):
-        return cls(  # todo: pydantic实现？
+        return cls(
             id_=dict_['id'],
             sku=dict_['sku'],
             title=dict_['title'],
