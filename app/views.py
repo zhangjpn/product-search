@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, current_app, make_response
 
 from . import configs
 from .exts import auth, product_search_service, rate_limiter
@@ -42,28 +42,4 @@ def search_products():
         has_next = len(result) > page_size
         for item in result.to_list()[:page_size]:
             items.append(item)
-    return jsonify(err_code=0, msg='Success', data={'items': items, 'has_next': int(has_next)})
-
-
-# @bp.route(rule='/admin/product', methods=['POST'])
-# def add_product():
-#     """add product by merchant or admin user"""
-#
-#     product_info = request.get_json(silent=True)
-#     product_info['created_at'] = int(datetime.now().timestamp() * 1000)
-#     with engine.connect() as conn:
-#         result = conn.execute(text(
-#             '''
-#                 INSERT INTO `products`(
-#                     `sku`, `title`, `description`,`created_at`
-#                 )values(
-#                     :sku, :title, :description, :created_at
-#                 )
-#             '''
-#         ), parameters=product_info)
-#         current_app.logger.info(f'result: {result}')
-#         conn.commit()
-#
-#     client.index(index=configs.ES_SEARCH_INDEX, id=product_info['sku'], document=product_info)
-#
-#     return 'ok'
+    return make_response(dict(err_code=0, msg='Success', data={'items': items, 'has_next': int(has_next)}))

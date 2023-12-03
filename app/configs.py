@@ -1,9 +1,6 @@
 # -*- coding:utf-8 -*-
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv()
 ES_HOST = os.environ.get('ES_HOST')
 ES_SEARCH_INDEX = os.environ.get('ES_SEARCH_INDEX')
 ES_SEARCH_TIMEOUT = int(os.environ.get('ES_SEARCH_TIMEOUT', 0))

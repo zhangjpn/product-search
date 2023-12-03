@@ -1,10 +1,9 @@
 # -*- coding:utf-8 -*-
 import logging
 import sys
-from concurrent.futures import ThreadPoolExecutor
 
 from elasticsearch import Elasticsearch
-from flask import request
+from flask import request, make_response
 from redis.client import Redis
 from redis.connection import ConnectionPool
 
@@ -17,7 +16,6 @@ from .services.product_search import ProductService
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(stream=sys.stdout))
-pool = ThreadPoolExecutor(10)
 
 es_client = Elasticsearch(hosts=[configs.ES_HOST])
 
@@ -27,10 +25,12 @@ embedding_client = EmbeddingClient(
 )
 
 redis_cli = Redis(
-    host=configs.REDIS_HOST,
-    port=configs.REDIS_PORT,
-    db=configs.REDIS_DB,
-    connection_pool=ConnectionPool(max_connections=configs.REDIS_MAX_CONNECTION)
+    connection_pool=ConnectionPool(
+        max_connections=configs.REDIS_MAX_CONNECTION,
+        host=configs.REDIS_HOST,
+        port=configs.REDIS_PORT,
+        db=configs.REDIS_DB,
+    )
 )
 
 
@@ -39,8 +39,7 @@ def api_key_getter():
 
 
 def permission_denied_handler():
-
-    return dict(error_cod=40000, msg='Permission denied'), 403
+    return make_response(dict(err_code=40000, msg='Permission denied', data={}), 403)
 
 
 auth = ApiAuthExt(configs.SEARCH_API_KEY)

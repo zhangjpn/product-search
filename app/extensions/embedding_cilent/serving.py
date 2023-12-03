@@ -25,7 +25,7 @@ class EmbeddingClient(object):
         """request language model for prediction result """
         pth = f'/v1/models/{self.model_name}:predict'
 
-        body = {"inputs": [query]}
+        body = {"instances": [query]}
         try:
 
             resp = self.send('POST', path=pth, json=body, **kwargs)
@@ -47,7 +47,7 @@ class EmbeddingClient(object):
                     f'status_code: {resp.status_code}, content: {resp.content}'
                 )
         resp_body = resp.json()
-        ret = (resp_body.get('outputs') or resp_body.get('predictions'))[0]
+        ret = resp_body.get('predictions')[0]
         self._logger.debug(f'Embedding got result, query:{query}, result: {resp_body}')
         return ret
 

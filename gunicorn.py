@@ -8,4 +8,4 @@ worker_class = "gevent"
 keepalive = 5
 proc_name = "gunicorn.api.proc"
 pidfile = "/tmp/gunicorn.pid"
-loglevel = "warning"
+loglevel = os.environ.get("LOG_LEVEL", "INFO")
