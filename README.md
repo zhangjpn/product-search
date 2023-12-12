@@ -206,5 +206,3 @@ The following image shows how model works:
 
 Visit [website](https://www.kaggle.com/models/google/universal-sentence-encoder) for more information.
 
-
-### Elasticsearch knn search
