@@ -3,11 +3,19 @@
 The app entry point, always run create_app using `create_app()` function
 """
 from logging.config import dictConfig
+import logging
 
-from flask import Flask, make_response
+
+from flask import Flask, make_response, request
+from elasticsearch import Elasticsearch
+from .extensions.embedding_client import EmbeddingClient
+from redis import Redis, ConnectionPool
+from .extensions.api_auth import ApiAuthExt
+from .extensions.rate_limit import RateLimiter
 
 from . import configs
 from .extensions.rate_limit import LimitationExceeded
+from .services.product_search import ProductService
 from .views import bp
 
 
@@ -29,7 +37,52 @@ def create_app():
     })
 
     app = Flask(__name__)
+    logger = logging.getLogger()
+    app.logger = logger
     app.logger.setLevel(configs.LOG_LEVEL)
+    es_client = Elasticsearch(hosts=[configs.ES_HOST])
+    embedding_client = EmbeddingClient(
+        host=configs.EMBEDDING_SERVICE_HOST,
+        model_name=configs.EMBEDDING_SERVICE_HOST_MODEL_NAME
+    )
+    embedding_client = EmbeddingClient(
+        host=configs.EMBEDDING_SERVICE_HOST,
+        model_name=configs.EMBEDDING_SERVICE_HOST_MODEL_NAME
+    )
+    redis_cli = Redis(
+        connection_pool=ConnectionPool(
+            max_connections=configs.REDIS_MAX_CONNECTION,
+            host=configs.REDIS_HOST,
+            port=configs.REDIS_PORT,
+            db=configs.REDIS_DB,
+        )
+    )
+
+    def api_key_getter():
+        return request.headers.get('Authorization')
+
+    def permission_denied_handler():
+        return make_response(dict(err_code=40003, msg='Permission denied', data={}), 403)
+
+
+    auth = ApiAuthExt(configs.SEARCH_API_KEY)
+    rate_limiter = RateLimiter(redis_client=redis_cli)
+
+    rate_limiter.register_identity_getter(api_key_getter)
+    auth.register_key_getter(api_key_getter)
+    auth.register_forbid_handler(permission_denied_handler)
+
+    product_search_service = ProductService(
+        es_client=es_client,
+        embedding_client=embedding_client,
+        logger=logger,
+        index=configs.ES_SEARCH_INDEX,
+        timeout=configs.ES_SEARCH_TIMEOUT or None,
+    )
+    app.product_search_service = product_search_service
+    app.rate_limiter = rate_limiter
+    app.auth = auth
+
     register_error_handler(app)
     register_extensions(app)
     register_resource(app)

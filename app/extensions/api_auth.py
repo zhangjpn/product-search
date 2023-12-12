@@ -39,6 +39,11 @@ class ApiAuthExt(object):
 
         return inner
 
+    def auth_user(self, key):
+        """ auth user identity by key """
+        if self.api_key != key and self.forbid_handler:
+            return self.forbid_handler()
+
     def register_forbid_handler(self, func):
         """set handler to response for request without correct api key"""
         self.forbid_handler = func

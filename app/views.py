@@ -2,24 +2,36 @@
 
 from flask import Blueprint, request, current_app, make_response
 
-from . import configs
-from .exts import auth, product_search_service, rate_limiter
 from .services.product_search import ProductSearchResult
 
 bp = Blueprint(import_name='product', name='product')
 
 
 @bp.route(rule='/products', methods=['GET'])
-@auth.login_required
-@rate_limiter.limit(configs.RATELIMIT_DURATION, configs.RATELIMIT_COUNT)
 def search_products():
-    """search products api """
+    """search products view function """
 
+    user_ident = request.headers.get('Authorization')
+    configs = current_app.configs
+
+    # user authorization
+    current_app.auth.auth_user(user_ident)
+
+    # rate limit
+    current_app.rate_limiter.check_user_limit(
+        duration=configs.get('RATELIMIT_DURATION'),
+        limit_count=configs.get('RATELIMIT_COUNT'),
+        user_ident=user_ident,
+    )
+
+    # parameter validation
     keywords = request.args.get('kw', default='')
     page = request.args.get('p', type=int, default=1)
     keywords = keywords.strip()
     page_size = configs.PAGINATION_PAGE_SIZE
     page = min(max(1, page), configs.PAGINATION_MAX_ITEMS)
+
+    product_search_service = current_app.product_search_service
 
     current_app.logger.debug(
         f'request params: {keywords}, page: {page}, '

@@ -7,7 +7,10 @@ from redis.client import Redis
 
 
 class RateLimitBaseError(Exception):
-    """rate limit base error, all error relative to rate limit should derive from it"""
+    """
+    rate limit base error,
+    all error relative to rate limit should derive from it
+    """
 
 
 class LimitationExceeded(RateLimitBaseError):
@@ -60,7 +63,12 @@ class RateLimiter(object):
     """
     key_template = '{prefix}.{type}.{duration}:{ident}'
 
-    def __init__(self, redis_client: Redis, identity_getter=None, key_prefix='ratelimit'):
+    def __init__(
+        self,
+        redis_client: Redis,
+        identity_getter=None,
+        key_prefix='ratelimit'
+    ):
         self.redis_client = redis_client
         self.identity_getter = identity_getter
         self.key_prefix = key_prefix
@@ -119,3 +127,29 @@ class RateLimiter(object):
     def register_identity_getter(self, func):
         self.identity_getter = func
         return func
+
+    def check_rate_limit(self, duration, limit_count, ident):
+
+        lock_key = self.get_cache_key(
+            type_='lock', duration=duration, ident=ident)
+        counter_key = self.get_cache_key(
+            type_='counter', duration=duration, ident=ident)
+
+        duration_secs = parse_duration_from_str(duration)
+
+        with self.redis_client.lock(lock_key):  # lock to avoid race condition
+            visit_count = self.redis_client.get(counter_key)
+            if not visit_count:
+                self.redis_client.setex(
+                    name=counter_key, time=duration_secs, value=1)
+            else:
+                visit_count = int(visit_count)
+                if visit_count >= limit_count:
+                    raise LimitationExceeded(
+                        f'Reached rate limitation, duration:{duration}, '
+                        f'limit:{limit_count}, visit_count: {visit_count}',
+                        duration=duration,
+                        limit_count=limit_count
+                    )
+                else:
+                    self.redis_client.incr(counter_key, amount=1)
